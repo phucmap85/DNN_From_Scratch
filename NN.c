@@ -76,16 +76,16 @@ db r2() {return ((db) rand() / (db) RAND_MAX) * 2 - 1;}
 // Forward propagation
 void forward() {
     for(ll layer=1;layer<sz(nodes_per_layer);layer++) {
-        // printf("######## Layer %lld ########\n", layer);
+        printf("######## Layer %lld ########\n", layer);
         ll w_order = 0;
         for(ll node=0;node<nodes_per_layer[layer];node++) {
-            // printf("--- Node %lld ---\n", node);
-            // printf("w: ");
+            printf("--- Node %lld ---\n", node);
+            printf("w: ");
 
             for(ll pre_node=0;pre_node<nodes_per_layer[layer-1];pre_node++) {
                 Y[layer][node] += W[layer][w_order] * A[layer-1][pre_node];
 
-                // printf("%lf ", W[layer][w_order]);
+                printf("%lf ", W[layer][w_order]);
 
                 w_order++;
             }
@@ -93,9 +93,9 @@ void forward() {
             Y[layer][node] += B[layer][node];
             A[layer][node] = activation_fn(Y[layer][node], layer);
 
-            // printf("\nb: %lf\ny: %lf\na: %lf\n", B[layer][node], Y[layer][node], A[layer][node]);
+            printf("\nb: %lf\ny: %lf\na: %lf\n", B[layer][node], Y[layer][node], A[layer][node]);
         }
-        // printf("\n");
+        printf("\n");
     }
 }
 
@@ -103,31 +103,31 @@ void forward() {
 // Backward propagation
 void backward() {
     dA[sz(nodes_per_layer)-1][0] = -truth / A[sz(nodes_per_layer)-1][0] + (1 - truth) / (1 - A[sz(nodes_per_layer)-1][0]);
-    // printf("%lf\n", dA[sz(nodes_per_layer)-1][0]);
+    printf("%lf\n", dA[sz(nodes_per_layer)-1][0]);
 
     for(ll layer=sz(nodes_per_layer)-1;layer>=1;layer--) {
-        // printf("######## Layer %lld ########\n", layer);
+        printf("######## Layer %lld ########\n", layer);
 
         ll w_order = 0;
         for(ll node=0;node<nodes_per_layer[layer];node++) {
-            // printf("--- Node %lld ---\n", node);
-            // printf("dW: ");
+            printf("--- Node %lld ---\n", node);
+            printf("dW: ");
 
             for(ll pre_node=0;pre_node<nodes_per_layer[layer-1];pre_node++) {
                 dW[layer][w_order] = dA[layer][node] * activation_fn_dx(Y[layer][node], layer) * A[layer-1][pre_node];
 
                 dA[layer-1][pre_node] += dA[layer][node] * activation_fn_dx(Y[layer][node], layer) * W[layer][w_order];
 
-                // printf("%lf ", dW[layer][w_order]);
+                printf("%lf ", dW[layer][w_order]);
 
                 w_order++;
             }
 
             dB[layer][node] = dA[layer][node] * activation_fn_dx(Y[layer][node], layer);
 
-            // printf("\ndB: %lf\ndA: %lf\n", dB[layer][node], dA[layer][node]);
+            printf("\ndB: %lf\ndA: %lf\n", dB[layer][node], dA[layer][node]);
         }
-        // printf("\n");
+        printf("\n");
     }
 }
 
@@ -135,21 +135,21 @@ void backward() {
 // Apply gradient descent
 void gradient_descent() {
     for(ll layer=1;layer<sz(nodes_per_layer);layer++) {
-        // printf("######## Layer %lld ########\n", layer);
-        // printf("New W: ");
+        printf("######## Layer %lld ########\n", layer);
+        printf("New W: ");
         for(ll w_order=0;w_order<nodes_per_layer[layer]*nodes_per_layer[layer-1];w_order++) {
             W[layer][w_order] -= lr * dW[layer][w_order];
 
-            // printf("%lf ", W[layer][w_order]);
+            printf("%lf ", W[layer][w_order]);
         }
 
-        // printf("\nNew B: ");
+        printf("\nNew B: ");
         for(ll node=0;node<nodes_per_layer[layer];node++) {
             B[layer][node] -= lr * dB[layer][node];
 
-            // printf("%lf ", B[layer][node]);
+            printf("%lf ", B[layer][node]);
         }
-        // printf("\n");
+        printf("\n");
     }
 }
 
@@ -191,7 +191,7 @@ int main() {
             truth = out[i];
 
             // Forward propagation
-            // printf("********** Forward **********\n");
+            printf("********** Forward **********\n");
             forward();
 
             // Calculate loss and print
@@ -200,7 +200,7 @@ int main() {
             fflush(stdout);
             
             // Backward propagation
-            // printf("********** Backward **********\n");
+            printf("********** Backward **********\n");
             backward();
 
             // Apply gradient descent
