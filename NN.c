@@ -14,10 +14,10 @@
 
 
 // Model configuration
-ll epochs = 100;
+ll epochs = 200;
 ll batch_size = 2;
 db lr = 0.1;
-ll nodes_per_layer[] = {0, 2, 2, 1};
+ll nodes_per_layer[] = {0, 4, 4, 1};
 char *activation_per_layer[] = {"#", "relu", "relu", "sigmoid"};
 
 
@@ -51,6 +51,8 @@ db activation_fn_dx(db x, ll layer) {
     else return linear_dx(x);
 }
 
+
+// Loss function and gradient
 db loss_fn(db truth, db predict) {
     return -truth * log(predict) - (1 - truth) * log(1 - predict);
 }
@@ -60,35 +62,44 @@ db loss_fn_dx(db truth, db predict) {
 }
 
 
-// Delay
-void delay(ll number_of_seconds) {
-    // Converting time into milli_seconds
-    ll milli_seconds = 1000 * number_of_seconds;
-
-    // Storing start time
-    clock_t start_time = clock();
-
-    // looping till required time is not achieved
-    while (clock() < start_time + milli_seconds);
-}
-
-
-// Reset parameter
-void reset() {
-    memset(A, 0, sizeof(A)); memset(Y, 0, sizeof(Y));
-    memset(dW, 0, sizeof(dW)); memset(dB, 0, sizeof(dB)); memset(dA, 0, sizeof(dA));
-}
-
-
 // Generate random number between -1 and 1
 db r2() {return ((db) rand() / (db) RAND_MAX) * 2 - 1;}
 
 
+// Reset parameter
+void reset_forward() {
+    memset(A, 0, sizeof(A));
+    memset(Y, 0, sizeof(Y));
+}
+
+void reset_backward() {
+    memset(dW, 0, sizeof(dW));
+    memset(dB, 0, sizeof(dB));
+    memset(dA, 0, sizeof(dA));
+}
+
+
 // Create batch
+void swap(db *a, db *b) {
+    db temp = *a;
+    *a = *b;
+    *b = temp;
+}
+
+void shuffle_array() {
+    for(ll i=m-1;i>=0;i--) {
+        ll new_pos = rand() % (i + 1);
+
+        for(ll j=0;j<n;j++) swap(&in[i][j], &in[new_pos][j]);
+        swap(&out[i], &out[new_pos]);
+    }
+}
+
 ll current_pos = 0;
 ll create_batch() {
     if(current_pos >= m) {
         current_pos = 0;
+        shuffle_array();
         return 0;
     }
 
@@ -99,8 +110,6 @@ ll create_batch() {
         local_pos++;
     }
     current_pos = min(current_pos + batch_size, m);
-
-    // printf("%lld %lld\n", current_pos, local_pos);
 
     return local_pos;
 }
@@ -135,6 +144,8 @@ void forward() {
 
 // Backward propagation
 void backward(db dE) {
+    memset(dA, 0, sizeof(dA));
+
     dA[sz(nodes_per_layer)-1][0] = dE;
     // printf("%lf\n", dA[sz(nodes_per_layer)-1][0]);
 
@@ -147,7 +158,7 @@ void backward(db dE) {
             // printf("dW: ");
 
             for(ll pre_node=0;pre_node<nodes_per_layer[layer-1];pre_node++) {
-                dW[layer][w_order] = dA[layer][node] * activation_fn_dx(Y[layer][node], layer) * A[layer-1][pre_node];
+                dW[layer][w_order] += dA[layer][node] * activation_fn_dx(Y[layer][node], layer) * A[layer-1][pre_node];
 
                 dA[layer-1][pre_node] += dA[layer][node] * activation_fn_dx(Y[layer][node], layer) * W[layer][w_order];
 
@@ -156,7 +167,7 @@ void backward(db dE) {
                 w_order++;
             }
 
-            dB[layer][node] = dA[layer][node] * activation_fn_dx(Y[layer][node], layer);
+            dB[layer][node] += dA[layer][node] * activation_fn_dx(Y[layer][node], layer);
 
             // printf("\ndB: %lf\ndA: %lf\n", dB[layer][node], dA[layer][node]);
         }
@@ -166,19 +177,19 @@ void backward(db dE) {
 
 
 // Apply gradient descent
-void gradient_descent() {
+void gradient_descent(ll curr_batch_size) {
     for(ll layer=1;layer<sz(nodes_per_layer);layer++) {
         // printf("######## Layer %lld ########\n", layer);
         // printf("New W: ");
         for(ll w_order=0;w_order<nodes_per_layer[layer]*nodes_per_layer[layer-1];w_order++) {
-            W[layer][w_order] -= lr * dW[layer][w_order];
+            W[layer][w_order] -= lr * (dW[layer][w_order] / curr_batch_size);
 
             // printf("%lf ", W[layer][w_order]);
         }
 
         // printf("\nNew B: ");
         for(ll node=0;node<nodes_per_layer[layer];node++) {
-            B[layer][node] -= lr * dB[layer][node];
+            B[layer][node] -= lr * (dB[layer][node] / curr_batch_size);
 
             // printf("%lf ", B[layer][node]);
         }
@@ -188,27 +199,19 @@ void gradient_descent() {
 
 
 int main() {
-    freopen("MAIN.INP", "r", stdin); freopen("MAIN.OUT", "w", stdout);
+    freopen("MAIN.INP", "r", stdin); //freopen("MAIN.OUT", "w", stdout);
 
 	scanf("%lld %lld", &m, &n);
 	for(ll i=0;i<m;i++) {
         for(ll j=0;j<n;j++) scanf("%lf", &in[i][j]);
         scanf("%lf", &out[i]);
     }
-
-    // for(ll i=1;i<=13;i++) {
-    //     ll size = create_batch();
-    //     for(ll j=0;j<size;j++) printf("%lf ", batch_out[j]);
-    //     printf("\n");
-    // }
-
-    // exit(0);
     
     // Set input size
     nodes_per_layer[0] = n;
 
     // Random weight and bias
-    srand(21042006);
+    srand(852006);
     
     for(ll layer=1;layer<sz(nodes_per_layer);layer++) {
         ll w_order = 0;
@@ -220,19 +223,21 @@ int main() {
 
     // Training
     for(ll epoch=1;epoch<=epochs;epoch++) {
-        printf("++++++++++++ EPOCH %lld ++++++++++++\n\n", epoch);
+        printf("+++++++++ EPOCH %lld +++++++++\n", epoch);
 
-        ll curr_batch_size;
+        ll curr_batch_size, batch_num = 0;
 
         // Load through dataset
         while((curr_batch_size = create_batch()) > 0) {
-            printf("Size: %lld\n", curr_batch_size);
-            // Reset loss
-            db loss = 0, dE = 0;
+            // printf("Size: %lld\n", curr_batch_size);
+            
+            // Reset parameter
+            db loss = 0;
+            reset_forward(); reset_backward();
 
             for(ll i=0;i<curr_batch_size;i++) {
                 // Reset parameters
-                reset();
+                reset_forward();
 
                 // Set input and output
                 for(ll j=0;j<n;j++) A[0][j] = batch_in[i][j];
@@ -242,24 +247,24 @@ int main() {
                 // printf("********** Forward **********\n");
                 forward();
                 
-                // Calculate loss and delta loss
+                // Calculate loss
                 loss += loss_fn(truth, A[sz(nodes_per_layer)-1][0]);
-                dE += loss_fn_dx(truth, A[sz(nodes_per_layer)-1][0]);
+
+                // Backward propagation
+                // printf("********** Backward **********\n");
+                backward(loss_fn_dx(truth, A[sz(nodes_per_layer)-1][0]));
             }
 
-            printf("====> Loss: %lf\n", loss / curr_batch_size);
+            printf("Batch %lld - Loss: %.9lf\n", ++batch_num, loss / curr_batch_size);
             fflush(stdout);
 
-            // Backward propagation
-            // printf("********** Backward **********\n");
-            backward(dE / curr_batch_size);
 
             // Apply gradient descent
-            gradient_descent();
+            gradient_descent(curr_batch_size);
 
             // delay(1);
         }
-        printf("++++++++++++ END OF EPOCH %lld ++++++++++++\n\n\n", epoch);
+        // printf("++++++++++++ END OF EPOCH %lld ++++++++++++\n\n\n", epoch);
     }
 
     // Test model
@@ -268,7 +273,7 @@ int main() {
     ll testcase; scanf("%lld", &testcase);
     for(ll i=1;i<=testcase;i++) {
         // Reset parameter
-        reset();
+        reset_forward();
 
         for(ll j=0;j<n;j++) scanf("%lf", &A[0][j]);
 
