@@ -14,10 +14,11 @@
 
 // Model configuration
 ll epochs = 1000;
-ll batch_size = 2;
-db lr = 0.01;
-ll nodes_per_layer[] = {0, 4, 4, 1};
-char *activation_per_layer[] = {"#", "relu", "relu", "softmax"};
+ll batch_size = 32;
+db rate = 1;
+db lr = 0.1;
+ll nodes_per_layer[] = {0, 6, 6, 6, 1};
+char *activation_per_layer[] = {"#", "relu", "relu", "relu", "softmax"};
 char *loss_function = "categorical_crossentropy";
 
 
@@ -163,8 +164,8 @@ void swap(db *a, db *b) {
     *b = temp;
 }
 
-void shuffle_array() {
-    for(ll i=m-1;i>=0;i--) {
+void shuffle_array(ll end) {
+    for(ll i=end-1;i>=0;i--) {
         ll new_pos = rand() % (i + 1);
 
         for(ll j=0;j<n;j++) swap(&in[i][j], &in[new_pos][j]);
@@ -173,20 +174,20 @@ void shuffle_array() {
 }
 
 ll current_pos = 0;
-ll create_batch() {
-    if(current_pos >= m) {
+ll create_batch(ll end) {
+    if(current_pos >= end) {
         current_pos = 0;
-        shuffle_array();
+        shuffle_array(end);
         return 0;
     }
 
     ll local_pos = 0;
-    for(ll i=current_pos;i<min(current_pos + batch_size, m);i++) {
+    for(ll i=current_pos;i<min(current_pos + batch_size, end);i++) {
         for(ll j=0;j<n;j++) batch_in[local_pos][j] = in[i][j];
         batch_out[local_pos] = out[i];
         local_pos++;
     }
-    current_pos = min(current_pos + batch_size, m);
+    current_pos = min(current_pos + batch_size, end);
 
     return local_pos;
 }
@@ -210,7 +211,7 @@ void forward() {
             A[layer][node] = activation_fn(Y[layer][node], layer, node);
         }
 
-        //Print result
+        // // Print result
         // printf("######## Layer %lld ########\n", layer);
         // w_order = 0;
         // for(ll node=0;node<nodes_per_layer[layer];node++) {\
@@ -234,27 +235,33 @@ void backward(db truth, db predict) {
     loss_fn_dx(truth, predict);
 
     for(ll layer=sz(nodes_per_layer)-1;layer>=1;layer--) {
-        // printf("######## Layer %lld ########\n", layer);
-
         ll w_order = 0;
         for(ll node=0;node<nodes_per_layer[layer];node++) {
-            // printf("--- Node %lld ---\n", node);
-            // printf("dW: ");
-
             for(ll pre_node=0;pre_node<nodes_per_layer[layer-1];pre_node++) {
                 dW[layer][w_order] += dA[layer][node] * (activation_per_layer[layer] != "softmax" ? activation_fn_dx(Y[layer][node], layer, node) : 1) * A[layer-1][pre_node];
 
                 dA[layer-1][pre_node] += dA[layer][node] * (activation_per_layer[layer] != "softmax" ? activation_fn_dx(Y[layer][node], layer, node) : 1) * W[layer][w_order];
 
-                // printf("%lf ", dW[layer][w_order]);
-
                 w_order++;
             }
 
             dB[layer][node] += dA[layer][node] * (activation_per_layer[layer] != "softmax" ? activation_fn_dx(Y[layer][node], layer, node) : 1);
-
-            // printf("\ndB: %lf\ndA: %lf\n", dB[layer][node], dA[layer][node]);
         }
+
+
+        // // Print result
+        // printf("######## Layer %lld ########\n", layer);
+        // w_order = 0;
+        // for(ll node=0;node<nodes_per_layer[layer];node++) {
+        //     printf("--- Node %lld ---\n", node);
+        //     printf("dW: ");
+
+        //     for(ll pre_node=0;pre_node<nodes_per_layer[layer-1];pre_node++) {
+        //         printf("%lf ", dW[layer][w_order++]);
+        //     }
+
+        //     printf("\ndB: %lf\ndA: %lf\n", dB[layer][node], dA[layer][node]);
+        // }
         // printf("\n");
     }
 }
@@ -282,10 +289,42 @@ void gradient_descent(ll curr_batch_size) {
 }
 
 
+// Test model
+db test_model(ll start) {
+    db correct = 0, cnt = 0;
+
+    for(ll i=start;i<m;i++) {
+        cnt++;
+        reset_forward();
+
+        for(ll j=0;j<n;j++) A[0][j] = in[i][j];
+        db truth = out[i];
+
+        forward();
+
+        db predict = A[sz(nodes_per_layer)-1][0];
+
+        if(loss_function == "categorical_crossentropy") {
+            predict = class[argmax(sz(nodes_per_layer)-1)];
+
+            if(predict == truth) correct++;
+        }
+        else if(loss_function == "binary_crossentropy") {
+            predict = A[sz(nodes_per_layer)-1][0] > 0.5;
+
+            if(predict == truth) correct++;
+        }
+        else correct += pow(truth - predict, 2);
+    }
+
+    return correct / cnt;
+}
+
+
 int main() {
     freopen("MAIN.INP", "r", stdin); //freopen("MAIN.OUT", "w", stdout);
 
-	scanf("%lld %lld", &m, &n);
+	scanf("%lld %lld %lf", &m, &n, &rate);
 	for(ll i=0;i<m;i++) {
         for(ll j=0;j<n;j++) scanf("%lf", &in[i][j]);
         scanf("%lf", &out[i]);
@@ -296,8 +335,9 @@ int main() {
         nodes_per_layer[sz(nodes_per_layer) - 1] = num_of_classes;
     }
     
-    // Set input size
+    // Set input size and train_test_split rate
     nodes_per_layer[0] = n;
+    ll train_rate = m * rate;
 
     // Random weight and bias
     srand(852006);
@@ -318,7 +358,7 @@ int main() {
         db total_loss = 0;
 
         // Load through dataset
-        while((curr_batch_size = create_batch()) > 0) {
+        while((curr_batch_size = create_batch(train_rate)) > 0) {
             // printf("Size: %lld\n", curr_batch_size);
             
             // Reset parameter
@@ -348,35 +388,33 @@ int main() {
             // Calculate total loss per epoch and print
             total_loss += loss / curr_batch_size;
             batch_num++;
-            printf("Batch %lld - Loss: %.9lf\n", batch_num, total_loss / batch_num);
+            printf("Batch %lld - Loss: %lf - Accuracy: %lf\n", batch_num, total_loss / batch_num, test_model(train_rate));
             fflush(stdout);
 
 
             // Apply gradient descent
             gradient_descent(curr_batch_size);
-
-            // delay(1);
         }
         // printf("++++++++++++ END OF EPOCH %lld ++++++++++++\n\n\n", epoch);
     }
 
     // Test model
-    printf("************* TEST MODEL *************\n");
+    // printf("************* TEST MODEL *************\n");
 
-    ll testcase; scanf("%lld", &testcase);
-    for(ll i=1;i<=testcase;i++) {
-        // Reset parameter
-        reset_forward();
+    // ll testcase; scanf("%lld", &testcase);
+    // for(ll i=1;i<=testcase;i++) {
+    //     // Reset parameter
+    //     reset_forward();
 
-        for(ll j=0;j<n;j++) scanf("%lf", &A[0][j]);
+    //     for(ll j=0;j<n;j++) scanf("%lf", &A[0][j]);
 
-        // Predict
-        forward();
+    //     // Predict
+    //     forward();
 
-        printf("Testcase #%lld - Predict value: ", i);
-        if(loss_function == "categorical_crossentropy") printf("%lld", class[argmax(sz(nodes_per_layer)-1)]);
-        else if(loss_function == "binary_crossentropy") printf("%lld", A[sz(nodes_per_layer)-1][0] > 0.5);
-        else printf("%lf", A[sz(nodes_per_layer)-1][0]);
-        printf("\n");
-    }
+    //     printf("Testcase #%lld - Predict value: ", i);
+    //     if(loss_function == "categorical_crossentropy") printf("%lld", class[argmax(sz(nodes_per_layer)-1)]);
+    //     else if(loss_function == "binary_crossentropy") printf("%lld", A[sz(nodes_per_layer)-1][0] > 0.5);
+    //     else printf("%lf", A[sz(nodes_per_layer)-1][0]);
+    //     printf("\n");
+    // }
 }
