@@ -1,17 +1,12 @@
 # Neural Network From Scratch
 This project demonstrates how to build a simple neural network from scratch using C. The goal is to understand the fundamental concepts behind neural networks and how they work.
 
-## Features
-
-- Implementation of a basic neural network
-- Forward propagation
-- Backward propagation
-- Training with gradient descent
-- Example usage with MNIST dataset
+The best achieved accuracy with this implementation on the MNIST dataset is 87.4%.
 
 ## Requirements
 
 - GCC (GNU Compiler Collection)
+- [MNIST dataset](https://www.kaggle.com/datasets/oddrationale/mnist-in-csv)
 
 ## Usage
 
@@ -38,10 +33,6 @@ This project demonstrates how to build a simple neural network from scratch usin
 - `inference.c`: The script to run inference with the trained neural network.
 - `last.txt`: The weights of the last-trained neural network.
 - `best.txt`: The weights of the best-trained neural network.
-
-## Dataset
-
-The project uses [MNIST dataset](https://www.kaggle.com/datasets/oddrationale/mnist-in-csv), which consists of handwritten digits. The best achieved accuracy with this implementation is 87.4%.
 
 ## Contributing
 
