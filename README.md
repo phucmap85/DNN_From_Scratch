@@ -1,3 +1,5 @@
+# Neural Network From Scratch
+
 This project implements a simple neural network from scratch using C. The goal is to understand the fundamental concepts behind neural networks and how they work.
 
 The best-achieved accuracy with this implementation on the MNIST dataset is 87.4%.
